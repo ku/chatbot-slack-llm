@@ -1,0 +1,8 @@
+export CHATBOT_SPANNER_DSN=projects/project_id/instances/instance_name/databases/dbname
+export CHATBOT_BOT_ID=BOTS_SLACK_UID
+export OPENAI_API_KEY=
+# required by slack webhook mode
+export SLACK_SIGNING_SECRET=
+# required by slack websocket mode
+export SLACK_BOT_TOKEN=xoxb-
+export SLACK_APP_TOKEN=xapp-
