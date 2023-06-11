@@ -7,8 +7,7 @@ import (
 
 type MessageStore interface {
 	Name() string
-	OnMention(ctx context.Context, m Message) error
-	OnMessage(ctx context.Context, m Message) error
+	OnMessage(ctx context.Context, m Message) (bool, error)
 	GetConversation(ctx context.Context, thid string) (Conversation, error)
 }
 
@@ -19,6 +18,7 @@ type Conversation interface {
 }
 
 type Message interface {
+	GetMessageID() string
 	GetThreadID() string
 	GetFrom() string
 	GetText() string

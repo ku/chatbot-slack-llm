@@ -11,24 +11,32 @@ import (
 )
 
 type conversations struct {
+	botID  string
 	client *spanner.Client
 }
 
 var _ messagestore.MessageStore = (*conversations)(nil)
 
-func NewConversations(client *spanner.Client) *conversations {
-	return &conversations{client: client}
+func NewConversations(botID string, client *spanner.Client) *conversations {
+	return &conversations{
+		botID:  botID,
+		client: client,
+	}
 }
 
 func (c *conversations) Name() string {
 	return "spanner"
 }
 
-func (c *conversations) OnMention(ctx context.Context, m messagestore.Message) error {
-	return c.OnMessage(ctx, m)
-}
+func (c *conversations) OnMessage(ctx context.Context, m messagestore.Message) (bool, error) {
+	if m.GetThreadID() == "" {
+		if !m.IsMentionAt(c.botID) {
+			// received a random message. ignore it.
+			return false, nil
+		}
+	}
 
-func (c *conversations) OnMessage(ctx context.Context, m messagestore.Message) error {
+	var added bool
 	_, err := c.client.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
 		newrec := &domains.Conversation{
 			ConversationID:   rand.Int63(),
@@ -49,10 +57,14 @@ func (c *conversations) OnMessage(ctx context.Context, m messagestore.Message) e
 
 		return nil
 	})
-	if spanner.ErrCode(err) != codes.AlreadyExists {
-		return err
+	if err != nil {
+		if spanner.ErrCode(err) != codes.AlreadyExists {
+			return false, err
+		}
+	} else {
+		added = true
 	}
-	return nil
+	return added, nil
 }
 
 func (c *conversations) GetConversation(ctx context.Context, conversationID string) (messagestore.Conversation, error) {

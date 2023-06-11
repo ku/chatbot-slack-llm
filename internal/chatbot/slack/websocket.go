@@ -102,6 +102,11 @@ func (s *websocket) Run(ctx context.Context) error {
 	return socketClient.Run()
 }
 
-func (s *websocket) PostReplyMessage(ctx context.Context, nm messagestore.Message) error {
-	return postReplyMessage(ctx, s.client, nm)
+func (w *websocket) PostMessage(ctx context.Context, message messagestore.Message) error {
+	_, _, err := postMessageContext(ctx, w.client, message)
+	return err
+}
+
+func (s *websocket) PostActionableMessage(ctx context.Context, nm messagestore.Message) error {
+	return postActionableMessage(ctx, s.client, nm)
 }

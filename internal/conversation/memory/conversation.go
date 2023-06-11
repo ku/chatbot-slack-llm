@@ -43,23 +43,19 @@ func (c *conversations) GetConversation(_ context.Context, thid string) (message
 	return cnvs, nil
 }
 
-func (c *conversations) OnMention(ctx context.Context, m messagestore.Message) error {
-	return nil
-}
-
-func (c *conversations) OnMessage(ctx context.Context, m messagestore.Message) error {
+func (c *conversations) OnMessage(ctx context.Context, m messagestore.Message) (bool, error) {
 	cv, ok := c.cvs[m.GetThreadID()]
 	if !ok {
 		if !m.IsMentionAt(c.botID) {
 			// received a random message. ignore it.
-			return nil
+			return false, nil
 		}
 		cv = NewConversation(ctx, m)
 		c.cvs[m.GetThreadID()] = cv
+		return true, nil
 	}
 
-	cv.AddMessage(ctx, m)
-	return nil
+	return cv.AddMessage(ctx, m)
 }
 
 func NewConversation(_ context.Context, m messagestore.Message) *conversation {

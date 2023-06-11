@@ -36,6 +36,11 @@ func (m *SlackMessage) GetFrom() string {
 	return m.From
 }
 
+// GetMessageID returns unique id of the message.
+func (m *SlackMessage) GetMessageID() string {
+	return m.GetTimestamp()
+}
+
 func (m *SlackMessage) GetTimestamp() string {
 	return m.TS
 }

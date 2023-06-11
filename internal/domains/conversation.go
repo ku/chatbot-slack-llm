@@ -29,6 +29,10 @@ func (c *Conversation) GetThreadTimestamp() string {
 	return c.ThreadTimestamp
 }
 
+func (c *Conversation) GetMessageID() string {
+	return c.GetMessageID()
+}
+
 func (c *Conversation) GetTimestamp() string {
 	return c.MessageTimestamp
 }

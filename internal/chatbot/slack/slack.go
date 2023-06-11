@@ -21,7 +21,7 @@ func HandleEventMessage(ctx context.Context, listener chatbot.EventListener, eve
 		// Yet Another Type switch on the actual Data to see if its an AppMentionEvent
 		switch ev := innerEvent.Data.(type) {
 		case *slackevents.AppMentionEvent:
-			err = listener.OnMention(ctx, ev)
+			// do nothing
 		case *slackevents.MessageEvent:
 			err = listener.OnMessage(ctx, ev)
 		default:
@@ -30,16 +30,12 @@ func HandleEventMessage(ctx context.Context, listener chatbot.EventListener, eve
 		if err != nil {
 			log.Println(err.Error())
 		}
-		//
-		//e := json.NewEncoder(os.Stdout)
-		//e.SetIndent("", "  ")
-		//e.SetEscapeHTML(false)
-		//e.Encode(event.InnerEvent.Data)
 	case slackevents.URLVerification:
 		vev, ok := event.Data.(*slackevents.EventsAPIURLVerificationEvent)
 		if !ok {
 			return nil, fmt.Errorf("could not type cast to ChallengeResponse: %v", event.Data)
 		}
+		println("verified")
 		return vev.Challenge, nil
 	default:
 		return nil, fmt.Errorf("unsupported event type: %s", event.Type)
@@ -59,8 +55,8 @@ func dumpAsJson(blocks []slack.Block) error {
 	return nil
 }
 
-func postReplyMessage(ctx context.Context, slackClient *slack.Client, nm messagestore.Message) error {
-	blocks, err := BuildBlocksFromResponse(nm.GetText())
+func postActionableMessage(ctx context.Context, slackClient *slack.Client, nm messagestore.Message) error {
+	blocks, err := BuildBlocksFromResponse(nm)
 	if err != nil {
 		return err
 	}

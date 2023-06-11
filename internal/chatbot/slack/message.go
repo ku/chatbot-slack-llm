@@ -2,6 +2,7 @@ package slack
 
 import (
 	"fmt"
+	"github.com/ku/chatbot/messagestore"
 	"github.com/slack-go/slack"
 	"strings"
 )
@@ -18,15 +19,16 @@ type ResponseBlock struct {
 	Text string
 }
 
-func BuildBlocksFromResponse(s string) ([]slack.Block, error) {
+func BuildBlocksFromResponse(m messagestore.Message) ([]slack.Block, error) {
 	blocks := []slack.Block{}
-
+	mid := m.GetMessageID()
+	s := m.GetText()
 	responseBlocks := CommandBlocksFromResponse(s)
-	for i, block := range responseBlocks {
+	for _, block := range responseBlocks {
 		s := block.Text
 		if block.Type == ResponseBlockTypeCommands {
 			runBtnText := slack.NewTextBlockObject("plain_text", "Run", true, false)
-			runBtnEle := slack.NewButtonBlockElement(fmt.Sprintf("run-%d", i), block.Text, runBtnText)
+			runBtnEle := slack.NewButtonBlockElement(fmt.Sprintf("run-%s", mid), block.Text, runBtnText)
 
 			text := slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("```%s```", block.Text), false, false)
 			section := slack.NewSectionBlock(text, nil, slack.NewAccessory(runBtnEle))

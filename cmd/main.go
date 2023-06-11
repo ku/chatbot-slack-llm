@@ -10,6 +10,7 @@ import (
 	"github.com/ku/chatbot/internal/conversation/spanner"
 	"github.com/ku/chatbot/internal/llm"
 	"github.com/ku/chatbot/internal/llm/openai"
+	"github.com/ku/chatbot/internal/responder"
 	"github.com/ku/chatbot/messagestore"
 	"github.com/slack-go/slack"
 	"github.com/spf13/cobra"
@@ -77,7 +78,7 @@ func start() error {
 		if err != nil {
 			return fmt.Errorf("failed to create spanner client: %w", err)
 		}
-		ms = spanner.NewConversations(spc)
+		ms = spanner.NewConversations(botID, spc)
 	} else {
 		ms = memory.NewConversations(botID)
 	}
@@ -99,7 +100,9 @@ func start() error {
 		}
 	}
 
-	cb = chatbot.New(ms, chat, llmClient, botID)
+	responder := responder.NewBashResponder()
+
+	cb = chatbot.New(ms, chat, llmClient, responder, botID)
 	chat.SetEventListener(cb)
 	return chat.Run(ctx)
 }

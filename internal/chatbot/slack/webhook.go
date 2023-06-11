@@ -11,6 +11,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 )
 
 type webhook struct {
@@ -58,12 +59,28 @@ func (w *webhook) Run(ctx context.Context) error {
 		}
 
 		ctx := req.Context()
+		// LLM takes a long time to respond, so use another context here.
 		ctx = context.Background()
-
 		return w.EventSubscriptionHandler(ctx, body)
 	}))
-	http.HandleFunc(w.conf.InteractionPath, func(w http.ResponseWriter, r *http.Request) {
-	})
+	http.HandleFunc(w.conf.InteractionPath, wrap(func(_ http.ResponseWriter, req *http.Request) (any, error) {
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		vals, err := url.ParseQuery(string(body))
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse query: %w", err)
+		}
+		payload := vals.Get("payload")
+
+		ctx := req.Context()
+		// LLM takes a long time to respond, so use another context here.
+		ctx = context.Background()
+
+		return w.InteractivityHandler(ctx, []byte(payload))
+	}))
 	fmt.Println("[INFO] Server listening")
 	return http.ListenAndServe(w.conf.Addr, nil)
 }
@@ -77,8 +94,19 @@ func (w *webhook) EventSubscriptionHandler(ctx context.Context, body []byte) (an
 	return HandleEventMessage(ctx, w.listener, eventsAPIEvent)
 }
 
-func (w *webhook) InteractionHandler(ctx context.Context) error {
-	return nil
+// InteractivityHandler handles interactive events like pressing buttons.
+func (w *webhook) InteractivityHandler(ctx context.Context, b []byte) (any, error) {
+	var icb slack.InteractionCallback
+	if err := json.Unmarshal(b, &icb); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal json: %w", err)
+	}
+
+	err := w.listener.OnInteractionCallback(ctx, &icb)
+	if err != nil {
+		// Replace with actual err handeling
+		log.Println(err)
+	}
+	return nil, err
 }
 
 func wrap(f func(w http.ResponseWriter, r *http.Request) (interface{}, error)) func(w http.ResponseWriter, r *http.Request) {
@@ -120,6 +148,11 @@ func (w *webhook) verifySignature(req *http.Request, body []byte) error {
 	return nil
 }
 
-func (w *webhook) PostReplyMessage(ctx context.Context, message messagestore.Message) error {
-	return postReplyMessage(ctx, w.client, message)
+func (w *webhook) PostMessage(ctx context.Context, message messagestore.Message) error {
+	_, _, err := postMessageContext(ctx, w.client, message)
+	return err
+}
+
+func (w *webhook) PostActionableMessage(ctx context.Context, message messagestore.Message) error {
+	return postActionableMessage(ctx, w.client, message)
 }

@@ -6,22 +6,26 @@ import (
 	"github.com/ku/chatbot/messagestore"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
+	"log"
 	"os"
+	"os/exec"
 	"strings"
 )
 
 type ChatBot struct {
-	llm     LLMClient
-	store   messagestore.MessageStore
-	chat    ChatService
-	verbose bool
+	llm       LLMClient
+	store     messagestore.MessageStore
+	chat      ChatService
+	responder BlockActionResponder
 
-	botID string
+	botID   string
+	verbose bool
 }
 
 type ChatService interface {
 	Name() string
-	PostReplyMessage(ctx context.Context, message messagestore.Message) error
+	PostMessage(ctx context.Context, message messagestore.Message) error
+	PostActionableMessage(ctx context.Context, message messagestore.Message) error
 	SetEventListener(listener EventListener)
 	Run(ctx context.Context) error
 }
@@ -32,17 +36,21 @@ type LLMClient interface {
 }
 
 type EventListener interface {
-	OnMention(ctx context.Context, ev *slackevents.AppMentionEvent) error
 	OnMessage(ctx context.Context, ev *slackevents.MessageEvent) error
 	OnInteractionCallback(ctx context.Context, acbs *slack.InteractionCallback) error
 }
 
-func New(store messagestore.MessageStore, chat ChatService, llm LLMClient, botID string) *ChatBot {
+type BlockActionResponder interface {
+	Handle(ctx context.Context, block string) (string, error)
+}
+
+func New(store messagestore.MessageStore, chat ChatService, llm LLMClient, responder BlockActionResponder, botID string) *ChatBot {
 	return &ChatBot{
-		llm:   llm,
-		store: store,
-		chat:  chat,
-		botID: botID,
+		llm:       llm,
+		store:     store,
+		chat:      chat,
+		responder: responder,
+		botID:     botID,
 	}
 }
 
@@ -76,24 +84,55 @@ func (c *ChatBot) OnMessage(ctx context.Context, ev *slackevents.MessageEvent) e
 		return nil
 	}
 
-	if err := c.store.OnMessage(ctx, m); err != nil {
+	added, err := c.store.OnMessage(ctx, m)
+	if !added {
 		return err
 	}
 
-	return c.respondToMessage(ctx, m)
-}
+	cv, err := c.store.GetConversation(ctx, m.GetThreadID())
+	if err != nil {
+		return err
+	}
 
-func (c *ChatBot) OnAuthorized(ctx context.Context, authTestResponse *slack.AuthTestResponse) error {
+	if c.shouldIgnore(cv, m) {
+		return nil
+	}
+
+	func() {
+		if err := c.respondToMessage(ctx, cv, m); err != nil {
+			log.Println(err.Error())
+		}
+	}()
+
 	return nil
 }
 
 func (c *ChatBot) postReply(ctx context.Context, nm messagestore.Message) error {
-	return c.chat.PostReplyMessage(ctx, nm)
+	return c.chat.PostActionableMessage(ctx, nm)
 }
 
 func (c *ChatBot) OnInteractionCallback(ctx context.Context, cb *slack.InteractionCallback) error {
 	for _, ba := range cb.ActionCallback.BlockActions {
-		println(ba.Text.Text)
+		var exitStatus string
+		script := ba.Value
+
+		output, err := c.responder.Handle(ctx, script)
+		// report the result
+		if err != nil {
+			ee, ok := err.(*exec.ExitError)
+			if !ok {
+				return err
+			}
+			exitStatus = fmt.Sprintf("%s\n", ee.Error())
+		} else {
+			exitStatus = ""
+		}
+		thid := cb.Message.Msg.ThreadTimestamp
+
+		msg := fmt.Sprintf("```%s```\n%s```%s```", script, exitStatus, output)
+		if err := c.chat.PostMessage(ctx, NewMessage(cb.Channel.ID, thid, msg)); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -112,7 +151,7 @@ func (c *ChatBot) processDebugMessage(ctx context.Context, m messagestore.Messag
 			"botID: " + c.botID,
 		}
 
-		if err := c.chat.PostReplyMessage(ctx, NewMessage(
+		if err := c.chat.PostActionableMessage(ctx, NewMessage(
 			m.GetChannel(),
 			m.GetThreadID(),
 			"^DEBUG\n"+strings.Join(vars, "\n"),
@@ -139,7 +178,7 @@ func (c *ChatBot) processDebugMessage(ctx context.Context, m messagestore.Messag
 		}
 
 		s := cv.String()
-		if err := c.chat.PostReplyMessage(ctx, NewMessage(
+		if err := c.chat.PostActionableMessage(ctx, NewMessage(
 			m.GetChannel(),
 			m.GetThreadID(),
 			"^DEBUG\n"+s,
@@ -150,16 +189,7 @@ func (c *ChatBot) processDebugMessage(ctx context.Context, m messagestore.Messag
 	return nil
 }
 
-func (c *ChatBot) respondToMessage(ctx context.Context, m messagestore.Message) error {
-	cv, err := c.store.GetConversation(ctx, m.GetThreadID())
-	if err != nil {
-		return err
-	}
-
-	if c.shouldIgnore(cv, m) {
-		return nil
-	}
-
+func (c *ChatBot) respondToMessage(ctx context.Context, cv messagestore.Conversation, m messagestore.Message) error {
 	resp, err := c.llm.Completion(ctx, cv, prompt())
 	if err != nil {
 		return fmt.Errorf("llm completion failed: %w", err)

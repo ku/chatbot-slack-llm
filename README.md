@@ -1,8 +1,9 @@
 chatbot
 =======
 
-slackbot for testing openai chat completion.
-supports both Slack webhook and websocket mode.
+Slackbot for testing openai chat completion.
+Do something on the response and print the result in the thread.
+Supports both Slack webhook and websocket mode.
 
 ```
 Usage:
@@ -15,4 +16,4 @@ Flags:
   -m, --messagestore string   messagestore [memory|spanner] (default "memory")
 ```
 
-<img src="./assets/screenshot.png" width=600 >
+<img src="./assets/screenshot.png" width=659>
