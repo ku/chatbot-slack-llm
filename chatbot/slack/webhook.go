@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/ku/chatbot/internal/chatbot"
+	"github.com/ku/chatbot/chatbot"
 	"github.com/ku/chatbot/messagestore"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"

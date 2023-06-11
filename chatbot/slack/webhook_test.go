@@ -2,7 +2,7 @@ package slack
 
 import (
 	"context"
-	"github.com/ku/chatbot/internal/chatbot"
+	"github.com/ku/chatbot/chatbot"
 	"github.com/ku/chatbot/messagestore"
 	"reflect"
 	"testing"

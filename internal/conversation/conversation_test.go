@@ -4,7 +4,7 @@ import (
 	gospanner "cloud.google.com/go/spanner"
 	"context"
 	"fmt"
-	"github.com/ku/chatbot/internal/chatbot"
+	"github.com/ku/chatbot/chatbot"
 	"github.com/ku/chatbot/internal/conversation/memory"
 	"github.com/ku/chatbot/internal/conversation/spanner"
 	"github.com/ku/chatbot/messagestore"

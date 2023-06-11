@@ -4,8 +4,8 @@ import (
 	gospanner "cloud.google.com/go/spanner"
 	"context"
 	"fmt"
-	"github.com/ku/chatbot/internal/chatbot"
-	chatslack "github.com/ku/chatbot/internal/chatbot/slack"
+	"github.com/ku/chatbot/chatbot"
+	slack2 "github.com/ku/chatbot/chatbot/slack"
 	"github.com/ku/chatbot/internal/conversation/memory"
 	"github.com/ku/chatbot/internal/conversation/spanner"
 	"github.com/ku/chatbot/internal/llm"
@@ -89,9 +89,9 @@ func start() error {
 		slackClient := slack.New(botToken, slack.OptionDebug(true), slack.OptionAppLevelToken(appToken))
 
 		if opts.chat == "websocket" {
-			chat = chatslack.NewWebsocket(&chatslack.WebsocketConfig{}, slackClient)
+			chat = slack2.NewWebsocket(&slack2.WebsocketConfig{}, slackClient)
 		} else {
-			chat = chatslack.NewWebHook(&chatslack.WebHookConfig{
+			chat = slack2.NewWebHook(&slack2.WebHookConfig{
 				Addr:                  "localhost:3000",
 				EventSubscriptionPath: "/subscription",
 				InteractionPath:       "/interaction",
