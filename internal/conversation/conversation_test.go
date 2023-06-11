@@ -4,7 +4,6 @@ import (
 	gospanner "cloud.google.com/go/spanner"
 	"context"
 	"fmt"
-	"github.com/ku/chatbot-slack-llm/chatbot"
 	"github.com/ku/chatbot-slack-llm/internal/conversation/memory"
 	"github.com/ku/chatbot-slack-llm/internal/conversation/spanner"
 	"github.com/ku/chatbot-slack-llm/messagestore"
@@ -30,7 +29,7 @@ func TestConversations_Implementations(t *testing.T) {
 
 	for name, impl := range impls {
 		t.Run(name+"/mention starts new conversation", func(t *testing.T) {
-			added, err := impl.OnMessage(ctx, chatbot.NewMessageFromMessage(&slackevents.MessageEvent{
+			added, err := impl.OnMessage(ctx, messagestore.NewMessageFromMessage(&slackevents.MessageEvent{
 				User:            "human",
 				Text:            "<!subteam^S01J9JZQZ8M> hello",
 				TimeStamp:       "1685788142.416859",
@@ -53,7 +52,7 @@ func TestConversations_Implementations(t *testing.T) {
 		t.Run(name+"/following messages in the thread are kept in the same conversation", func(t *testing.T) {
 			now := time.Now().Unix()
 			ts := fmt.Sprintf("%d.%d", now, now)
-			added, err := impl.OnMessage(ctx, chatbot.NewMessageFromMessage(&slackevents.MessageEvent{
+			added, err := impl.OnMessage(ctx, messagestore.NewMessageFromMessage(&slackevents.MessageEvent{
 				User:            "human",
 				Text:            "<!subteam^S01J9JZQZ8M> hello",
 				TimeStamp:       ts,
@@ -67,7 +66,7 @@ func TestConversations_Implementations(t *testing.T) {
 			if !added {
 				t.Fatal("should be added")
 			}
-			added, err = impl.OnMessage(ctx, chatbot.NewMessageFromMessage(&slackevents.MessageEvent{
+			added, err = impl.OnMessage(ctx, messagestore.NewMessageFromMessage(&slackevents.MessageEvent{
 				User:            "human",
 				Text:            "are you listening?",
 				TimeStamp:       "1685790093.186349",

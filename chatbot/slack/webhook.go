@@ -12,58 +12,56 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"time"
 )
 
-type webhook struct {
-	conf     *WebHookConfig
-	client   *slack.Client
-	listener chatbot.EventListener
+type WebHook struct {
+	conf             *WebHookConfig
+	client           *slack.Client
+	listener         chatbot.EventListener
+	llmTimeout       time.Duration
+	responderTimeout time.Duration
 }
 
-var _ chatbot.ChatService = (*webhook)(nil)
+var _ chatbot.ChatService = (*WebHook)(nil)
 
 type WebHookConfig struct {
+	SigningSecret string
+	HTTP          *WebHookHTTPConfig
+}
+
+type WebHookHTTPConfig struct {
 	Addr                  string
 	EventSubscriptionPath string
 	InteractionPath       string
-	SigningSecret         string
 }
 
-func NewWebHook(conf *WebHookConfig, client *slack.Client) *webhook {
-	return &webhook{
+func NewWebHook(conf *WebHookConfig, client *slack.Client) *WebHook {
+	return &WebHook{
 		conf:   conf,
 		client: client,
 	}
 }
 
-func (w *webhook) Name() string {
+func (w *WebHook) Name() string {
 	return "slack.webhook"
 }
 
-func (w *webhook) SetEventListener(listener chatbot.EventListener) {
+func (w *WebHook) SetEventListener(listener chatbot.EventListener) {
 	w.listener = listener
 }
 
-func (w *webhook) Run(ctx context.Context) error {
+func (w *WebHook) Run(ctx context.Context) error {
 	http.HandleFunc("/", wrap(func(_ http.ResponseWriter, req *http.Request) (any, error) {
 		return nil, nil
 	}))
-	http.HandleFunc(w.conf.EventSubscriptionPath, wrap(func(_ http.ResponseWriter, req *http.Request) (any, error) {
-		body, err := io.ReadAll(req.Body)
-		if err != nil {
-			return nil, err
-		}
+	http.HandleFunc(w.conf.HTTP.EventSubscriptionPath, w.EventSubscriptionHandler())
+	http.HandleFunc(w.conf.HTTP.InteractionPath, w.InteractivityHandler())
+	return http.ListenAndServe(w.conf.HTTP.Addr, nil)
+}
 
-		if err := w.verifySignature(req, body); err != nil {
-			return nil, err
-		}
-
-		ctx := req.Context()
-		// LLM takes a long time to respond, so use another context here.
-		ctx = context.Background()
-		return w.EventSubscriptionHandler(ctx, body)
-	}))
-	http.HandleFunc(w.conf.InteractionPath, wrap(func(_ http.ResponseWriter, req *http.Request) (any, error) {
+func (w *WebHook) InteractivityHandler() func(http.ResponseWriter, *http.Request) {
+	return wrap(func(_ http.ResponseWriter, req *http.Request) (any, error) {
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
 			return nil, err
@@ -79,13 +77,26 @@ func (w *webhook) Run(ctx context.Context) error {
 		// LLM takes a long time to respond, so use another context here.
 		ctx = context.Background()
 
-		return w.InteractivityHandler(ctx, []byte(payload))
-	}))
-	fmt.Println("[INFO] Server listening")
-	return http.ListenAndServe(w.conf.Addr, nil)
+		return w.interactivityHandler(ctx, []byte(payload))
+	})
 }
 
-func (w *webhook) EventSubscriptionHandler(ctx context.Context, body []byte) (any, error) {
+func (w *WebHook) EventSubscriptionHandler() func(http.ResponseWriter, *http.Request) {
+	return wrap(func(_ http.ResponseWriter, req *http.Request) (any, error) {
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := w.verifySignature(req, body); err != nil {
+			return nil, err
+		}
+
+		return w.eventSubscriptionHandler(req.Context(), body)
+	})
+}
+
+func (w *WebHook) eventSubscriptionHandler(ctx context.Context, body []byte) (any, error) {
 	eventsAPIEvent, err := slackevents.ParseEvent(body, slackevents.OptionNoVerifyToken())
 	if err != nil {
 		return nil, err
@@ -95,7 +106,7 @@ func (w *webhook) EventSubscriptionHandler(ctx context.Context, body []byte) (an
 }
 
 // InteractivityHandler handles interactive events like pressing buttons.
-func (w *webhook) InteractivityHandler(ctx context.Context, b []byte) (any, error) {
+func (w *WebHook) interactivityHandler(ctx context.Context, b []byte) (any, error) {
 	var icb slack.InteractionCallback
 	if err := json.Unmarshal(b, &icb); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal json: %w", err)
@@ -103,7 +114,7 @@ func (w *webhook) InteractivityHandler(ctx context.Context, b []byte) (any, erro
 
 	err := w.listener.OnInteractionCallback(ctx, &icb)
 	if err != nil {
-		// Replace with actual err handeling
+		// Replace with actual err handling
 		log.Println(err)
 	}
 	return nil, err
@@ -134,7 +145,7 @@ func wrap(f func(w http.ResponseWriter, r *http.Request) (interface{}, error)) f
 	}
 }
 
-func (w *webhook) verifySignature(req *http.Request, body []byte) error {
+func (w *WebHook) verifySignature(req *http.Request, body []byte) error {
 	sv, err := slack.NewSecretsVerifier(req.Header, w.conf.SigningSecret)
 	if err != nil {
 		return err
@@ -148,11 +159,11 @@ func (w *webhook) verifySignature(req *http.Request, body []byte) error {
 	return nil
 }
 
-func (w *webhook) PostMessage(ctx context.Context, message messagestore.Message) error {
+func (w *WebHook) PostMessage(ctx context.Context, message messagestore.Message) error {
 	_, _, err := postMessageContext(ctx, w.client, message)
 	return err
 }
 
-func (w *webhook) PostActionableMessage(ctx context.Context, message messagestore.Message) error {
+func (w *WebHook) PostActionableMessage(ctx context.Context, message messagestore.Message) error {
 	return postActionableMessage(ctx, w.client, message)
 }

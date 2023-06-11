@@ -29,7 +29,6 @@ type ChatService interface {
 	SetEventListener(listener EventListener)
 	Run(ctx context.Context) error
 }
-
 type LLMClient interface {
 	Name() string
 	Completion(ctx context.Context, cv messagestore.Conversation, prompt string) (messagestore.CompletionMessage, error)
@@ -75,7 +74,7 @@ func (c *ChatBot) OnMention(ctx context.Context, ev *slackevents.AppMentionEvent
 }
 
 func (c *ChatBot) OnMessage(ctx context.Context, ev *slackevents.MessageEvent) error {
-	m := NewMessageFromMessage(ev)
+	m := messagestore.NewMessageFromMessage(ev)
 
 	_ = c.processDebugMessage(ctx, m)
 
@@ -98,7 +97,7 @@ func (c *ChatBot) OnMessage(ctx context.Context, ev *slackevents.MessageEvent) e
 		return nil
 	}
 
-	func() {
+	go func() {
 		if err := c.respondToMessage(ctx, cv, m); err != nil {
 			log.Println(err.Error())
 		}
@@ -130,7 +129,7 @@ func (c *ChatBot) OnInteractionCallback(ctx context.Context, cb *slack.Interacti
 		thid := cb.Message.Msg.ThreadTimestamp
 
 		msg := fmt.Sprintf("```%s```\n%s```%s```", script, exitStatus, output)
-		if err := c.chat.PostMessage(ctx, NewMessage(cb.Channel.ID, thid, msg)); err != nil {
+		if err := c.chat.PostMessage(ctx, messagestore.NewMessage(cb.Channel.ID, thid, msg)); err != nil {
 			return err
 		}
 	}
@@ -151,7 +150,7 @@ func (c *ChatBot) processDebugMessage(ctx context.Context, m messagestore.Messag
 			"botID: " + c.botID,
 		}
 
-		if err := c.chat.PostActionableMessage(ctx, NewMessage(
+		if err := c.chat.PostActionableMessage(ctx, messagestore.NewMessage(
 			m.GetChannel(),
 			m.GetThreadID(),
 			"^DEBUG\n"+strings.Join(vars, "\n"),
@@ -178,7 +177,7 @@ func (c *ChatBot) processDebugMessage(ctx context.Context, m messagestore.Messag
 		}
 
 		s := cv.String()
-		if err := c.chat.PostActionableMessage(ctx, NewMessage(
+		if err := c.chat.PostActionableMessage(ctx, messagestore.NewMessage(
 			m.GetChannel(),
 			m.GetThreadID(),
 			"^DEBUG\n"+s,
@@ -194,7 +193,7 @@ func (c *ChatBot) respondToMessage(ctx context.Context, cv messagestore.Conversa
 	if err != nil {
 		return fmt.Errorf("llm completion failed: %w", err)
 	}
-	nm := NewMessageFromCompletionMessage(m.GetChannel(), m.GetThreadID(), resp)
+	nm := messagestore.NewMessageFromCompletionMessage(m.GetChannel(), m.GetThreadID(), resp)
 
 	if err := c.postReply(ctx, nm); err != nil {
 		return err

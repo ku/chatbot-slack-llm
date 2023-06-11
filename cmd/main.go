@@ -92,10 +92,12 @@ func start() error {
 			chat = slack2.NewWebsocket(&slack2.WebsocketConfig{}, slackClient)
 		} else {
 			chat = slack2.NewWebHook(&slack2.WebHookConfig{
-				Addr:                  "localhost:3000",
-				EventSubscriptionPath: "/subscription",
-				InteractionPath:       "/interaction",
-				SigningSecret:         os.Getenv("SLACK_SIGNING_SECRET"),
+				SigningSecret: os.Getenv("SLACK_SIGNING_SECRET"),
+				HTTP: &slack2.WebHookHTTPConfig{
+					Addr:                  "localhost:3000",
+					EventSubscriptionPath: "/subscription",
+					InteractionPath:       "/interaction",
+				},
 			}, slackClient)
 		}
 	}

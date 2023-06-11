@@ -1,94 +1,80 @@
 package messagestore
 
 import (
-	"fmt"
+	"context"
+	"github.com/slack-go/slack/slackevents"
 	"regexp"
-	"strconv"
-	"strings"
 	"time"
 )
 
 var mentionRegex = regexp.MustCompile(`<(!\w+\^|@)(\w+)>\s*`)
 
-type SlackMessage struct {
-	RawMessage interface{}
-	From       string
-	Text       string
-	TS         string
-	ThreadTS   string
-	Channel    string
-	EventTS    string
+type MessageStore interface {
+	Name() string
+	OnMessage(ctx context.Context, m Message) (bool, error)
+	GetConversation(ctx context.Context, thid string) (Conversation, error)
 }
 
-var _ Message = (*SlackMessage)(nil)
-
-func FilterSlackMention(s string) string {
-	return mentionRegex.ReplaceAllString(s, "")
+type Conversation interface {
+	GetMessages() []Message
+	IsFromInitiater(m Message) bool
+	String() string
 }
 
-// Text() replaces mention meta texts with empty string.
-// https://api.slack.com/reference/surfaces/formatting
-func (m *SlackMessage) GetText() string {
-	return FilterSlackMention(m.Text)
+type Message interface {
+	GetMessageID() string
+	GetThreadID() string
+	GetFrom() string
+	GetText() string
+	GetRawText() string
+	GetThreadTimestamp() string
+	GetTimestamp() string
+	GetChannel() string
+	GetCreatedAt() time.Time
+	IsMentionAt(id string) bool
 }
 
-func (m *SlackMessage) GetFrom() string {
-	return m.From
+type CompletionMessage interface {
+	GetText() string
 }
 
-// GetMessageID returns unique id of the message.
-func (m *SlackMessage) GetMessageID() string {
-	return m.GetTimestamp()
-}
-
-func (m *SlackMessage) GetTimestamp() string {
-	return m.TS
-}
-
-func (m *SlackMessage) GetRawText() string {
-	return m.Text
-}
-
-func (m *SlackMessage) GetChannel() string {
-	return m.Channel
-}
-
-func (m *SlackMessage) GetThreadID() string {
-	if m.ThreadTS == "" {
-		return m.TS
+func NewMessageFromMention(ev *slackevents.AppMentionEvent) *SlackMessage {
+	return &SlackMessage{
+		RawMessage: ev,
+		From:       ev.User,
+		Text:       ev.Text,
+		TS:         ev.TimeStamp,
+		ThreadTS:   ev.TimeStamp,
+		Channel:    ev.Channel,
+		EventTS:    ev.EventTimeStamp,
 	}
-	return m.ThreadTS
 }
 
-func (m *SlackMessage) String() string {
-	return fmt.Sprintf("%s: %s", m.From, m.Text)
-}
-
-func (m *SlackMessage) GetThreadTimestamp() string {
-	return m.ThreadTS
-}
-
-func (m *SlackMessage) GetCreatedAt() time.Time {
-	a := strings.Split(m.TS, ".")
-	if len(a) != 2 {
+func NewMessageFromMessage(ev *slackevents.MessageEvent) *SlackMessage {
+	return &SlackMessage{
+		RawMessage: ev,
+		From:       ev.User,
+		Text:       ev.Text,
+		TS:         ev.TimeStamp,
+		ThreadTS:   ev.ThreadTimeStamp,
+		Channel:    ev.Channel,
+		EventTS:    ev.EventTimeStamp,
 	}
-
-	f, err := strconv.ParseFloat(m.TS, 64)
-	if err != nil {
-		return time.Time{}
-	}
-
-	return time.Unix(0, 0).Add(time.Duration(f * float64(time.Second)))
 }
 
-func (m *SlackMessage) IsMentionAt(id string) bool {
-	return MentionAt(m.Text) == id
+func NewMessageFromCompletionMessage(channel string, thid string, m CompletionMessage) *SlackMessage {
+	return &SlackMessage{
+		From:     "",
+		Text:     m.GetText(),
+		ThreadTS: thid,
+		Channel:  channel,
+	}
 }
 
-func MentionAt(s string) string {
-	m := mentionRegex.FindStringSubmatch(s)
-	if len(m) == 3 {
-		return m[2]
+func NewMessage(channel string, thid string, text string) *SlackMessage {
+	return &SlackMessage{
+		Channel:  channel,
+		ThreadTS: thid,
+		Text:     text,
 	}
-	return ""
 }

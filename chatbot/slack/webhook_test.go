@@ -1,9 +1,14 @@
 package slack
 
 import (
+	"bytes"
 	"context"
 	"github.com/ku/chatbot-slack-llm/chatbot"
 	"github.com/ku/chatbot-slack-llm/messagestore"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"testing"
 )
@@ -48,14 +53,25 @@ func Test_webhook_InteractivityHandler(t *testing.T) {
 			ctx := context.Background()
 			chat := &chatmock{}
 			bot := chatbot.New(nil, chat, nil, &echoResponder{}, "")
-			w := &webhook{
+			webhook := &WebHook{
 				listener: bot,
 			}
-			_, err := w.InteractivityHandler(ctx, []byte(tt.payload))
+			f := webhook.InteractivityHandler()
+
+			val := url.Values{}
+			val.Set("payload", tt.payload)
+
+			req := (&http.Request{
+				Body: io.NopCloser(bytes.NewReader([]byte(val.Encode()))),
+			}).WithContext(ctx)
+
+			rec := &httptest.ResponseRecorder{}
+			f(rec, req)
+
 			got := chat.msg.GetText()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("InteractivityHandler() error = %v, wantErr %v", err, tt.wantErr)
-				return
+
+			if rec.Code != 200 {
+				t.Fatal("http request failed")
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("InteractivityHandler() got = %v, want %v", got, tt.want)
