@@ -2,7 +2,7 @@ package slack
 
 import (
 	"context"
-	"github.com/ku/chatbot/messagestore"
+	"github.com/ku/chatbot-slack-llm/messagestore"
 	"github.com/slack-go/slack"
 )
 

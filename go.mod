@@ -1,6 +1,6 @@
-module github.com/ku/chatbot
+module github.com/ku/chatbot-slack-llm
 
-go 1.20
+go 1.19
 
 require (
 	cloud.google.com/go/spanner v1.46.0

@@ -1,8 +1,8 @@
 package slack_test
 
 import (
-	"github.com/ku/chatbot/chatbot"
-	"github.com/ku/chatbot/chatbot/slack"
+	"github.com/ku/chatbot-slack-llm/chatbot"
+	"github.com/ku/chatbot-slack-llm/chatbot/slack"
 	"testing"
 )
 

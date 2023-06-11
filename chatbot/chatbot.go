@@ -3,7 +3,7 @@ package chatbot
 import (
 	"context"
 	"fmt"
-	"github.com/ku/chatbot/messagestore"
+	"github.com/ku/chatbot-slack-llm/messagestore"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 	"log"

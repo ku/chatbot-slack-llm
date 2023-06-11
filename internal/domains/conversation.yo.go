@@ -5,7 +5,7 @@ package domains
 import (
 	"context"
 	"fmt"
-	"github.com/ku/chatbot/messagestore"
+	"github.com/ku/chatbot-slack-llm/messagestore"
 	"time"
 
 	"cloud.google.com/go/spanner"

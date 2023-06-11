@@ -3,7 +3,7 @@ package memory
 import (
 	"context"
 	"fmt"
-	"github.com/ku/chatbot/messagestore"
+	"github.com/ku/chatbot-slack-llm/messagestore"
 )
 
 type conversation struct {

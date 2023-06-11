@@ -3,7 +3,7 @@ package responder
 import (
 	"context"
 	"fmt"
-	"github.com/ku/chatbot/chatbot"
+	"github.com/ku/chatbot-slack-llm/chatbot"
 	"io"
 	"os/exec"
 )

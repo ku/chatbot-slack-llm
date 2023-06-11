@@ -3,8 +3,8 @@ package spanner
 import (
 	"cloud.google.com/go/spanner"
 	"context"
-	"github.com/ku/chatbot/internal/domains"
-	"github.com/ku/chatbot/messagestore"
+	"github.com/ku/chatbot-slack-llm/internal/domains"
+	"github.com/ku/chatbot-slack-llm/messagestore"
 	"google.golang.org/grpc/codes"
 	"math/rand"
 	"strings"

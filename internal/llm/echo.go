@@ -2,7 +2,7 @@ package llm
 
 import (
 	"context"
-	"github.com/ku/chatbot/messagestore"
+	"github.com/ku/chatbot-slack-llm/messagestore"
 )
 
 type echo struct{}
