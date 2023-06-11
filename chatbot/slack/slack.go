@@ -22,6 +22,7 @@ func HandleEventMessage(ctx context.Context, listener chatbot.EventListener, eve
 		switch ev := innerEvent.Data.(type) {
 		case *slackevents.AppMentionEvent:
 			// do nothing
+			println(ev.Text)
 		case *slackevents.MessageEvent:
 			err = listener.OnMessage(ctx, ev)
 		default:

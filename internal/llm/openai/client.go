@@ -9,6 +9,7 @@ import (
 
 type Client struct {
 	client *openai.Client
+	prompt func() (string, error)
 }
 
 type openaiCompletionResponse struct {
@@ -23,9 +24,10 @@ func (o *openaiCompletionResponse) GetText() string {
 	return o.resp.Choices[0].Message.Content
 }
 
-func NewClient(apiKey string) *Client {
+func NewClient(apiKey string, prompt func() (string, error)) *Client {
 	return &Client{
 		client: openai.NewClient(apiKey),
+		prompt: prompt,
 	}
 }
 
@@ -33,9 +35,14 @@ func (c *Client) Name() string {
 	return "openai"
 }
 
-func (c *Client) Completion(ctx context.Context, cv messagestore.Conversation, prompt string) (messagestore.CompletionMessage, error) {
+func (c *Client) Completion(ctx context.Context, cv messagestore.Conversation) (messagestore.CompletionMessage, error) {
 	var resp openai.ChatCompletionResponse
 	var err error
+
+	prompt, err := c.prompt()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get prompt: %w", err)
+	}
 	msgs := conversationToMessages(cv, prompt)
 
 	resp, err = c.client.CreateChatCompletion(

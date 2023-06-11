@@ -7,9 +7,9 @@ import (
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 	"log"
-	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 type ChatBot struct {
@@ -20,6 +20,9 @@ type ChatBot struct {
 
 	botID   string
 	verbose bool
+
+	llmTimeout      time.Duration
+	responderimeout time.Duration
 }
 
 type ChatService interface {
@@ -29,9 +32,10 @@ type ChatService interface {
 	SetEventListener(listener EventListener)
 	Run(ctx context.Context) error
 }
+
 type LLMClient interface {
 	Name() string
-	Completion(ctx context.Context, cv messagestore.Conversation, prompt string) (messagestore.CompletionMessage, error)
+	Completion(ctx context.Context, cv messagestore.Conversation) (messagestore.CompletionMessage, error)
 }
 
 type EventListener interface {
@@ -44,12 +48,15 @@ type BlockActionResponder interface {
 }
 
 func New(store messagestore.MessageStore, chat ChatService, llm LLMClient, responder BlockActionResponder, botID string) *ChatBot {
+	timeout := 60 * time.Second
 	return &ChatBot{
-		llm:       llm,
-		store:     store,
-		chat:      chat,
-		responder: responder,
-		botID:     botID,
+		llm:             llm,
+		store:           store,
+		chat:            chat,
+		responder:       responder,
+		botID:           botID,
+		llmTimeout:      timeout,
+		responderimeout: timeout,
 	}
 }
 
@@ -59,18 +66,6 @@ func (c *ChatBot) GetConversation(thid string) messagestore.Conversation {
 		return nil
 	}
 	return cnvs
-}
-
-func prompt() string {
-	b, err := os.ReadFile("./prompt.txt")
-	if err != nil {
-		panic(fmt.Sprintf("failed to read prompt.txt: %v", err))
-	}
-	return string(b)
-}
-
-func (c *ChatBot) OnMention(ctx context.Context, ev *slackevents.AppMentionEvent) error {
-	return nil
 }
 
 func (c *ChatBot) OnMessage(ctx context.Context, ev *slackevents.MessageEvent) error {
@@ -98,6 +93,7 @@ func (c *ChatBot) OnMessage(ctx context.Context, ev *slackevents.MessageEvent) e
 	}
 
 	go func() {
+		ctx, _ := context.WithTimeout(context.Background(), c.llmTimeout)
 		if err := c.respondToMessage(ctx, cv, m); err != nil {
 			log.Println(err.Error())
 		}
@@ -111,16 +107,24 @@ func (c *ChatBot) postReply(ctx context.Context, nm messagestore.Message) error 
 }
 
 func (c *ChatBot) OnInteractionCallback(ctx context.Context, cb *slack.InteractionCallback) error {
-	for _, ba := range cb.ActionCallback.BlockActions {
-		var exitStatus string
-		script := ba.Value
+	if len(cb.ActionCallback.BlockActions) < 1 {
+		return nil
+	}
+
+	ba := cb.ActionCallback.BlockActions[0]
+	var exitStatus string
+	script := ba.Value
+
+	go func() {
+		ctx, _ := context.WithTimeout(context.Background(), c.responderimeout)
 
 		output, err := c.responder.Handle(ctx, script)
 		// report the result
 		if err != nil {
 			ee, ok := err.(*exec.ExitError)
 			if !ok {
-				return err
+				log.Printf("responder failed: %s", err.Error())
+				return
 			}
 			exitStatus = fmt.Sprintf("%s\n", ee.Error())
 		} else {
@@ -130,9 +134,10 @@ func (c *ChatBot) OnInteractionCallback(ctx context.Context, cb *slack.Interacti
 
 		msg := fmt.Sprintf("```%s```\n%s```%s```", script, exitStatus, output)
 		if err := c.chat.PostMessage(ctx, messagestore.NewMessage(cb.Channel.ID, thid, msg)); err != nil {
-			return err
+			log.Printf("responder failed: %s", err.Error())
+			return
 		}
-	}
+	}()
 
 	return nil
 }
@@ -189,7 +194,7 @@ func (c *ChatBot) processDebugMessage(ctx context.Context, m messagestore.Messag
 }
 
 func (c *ChatBot) respondToMessage(ctx context.Context, cv messagestore.Conversation, m messagestore.Message) error {
-	resp, err := c.llm.Completion(ctx, cv, prompt())
+	resp, err := c.llm.Completion(ctx, cv)
 	if err != nil {
 		return fmt.Errorf("llm completion failed: %w", err)
 	}

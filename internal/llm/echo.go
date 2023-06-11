@@ -23,7 +23,7 @@ func (e *echo) Name() string {
 	return "echo"
 }
 
-func (e *echo) Completion(ctx context.Context, cv messagestore.Conversation, prompt string) (messagestore.CompletionMessage, error) {
+func (e *echo) Completion(ctx context.Context, cv messagestore.Conversation) (messagestore.CompletionMessage, error) {
 	msgs := cv.GetMessages()
 	if len(msgs) == 0 {
 		return &echoMessage{"howdy"}, nil

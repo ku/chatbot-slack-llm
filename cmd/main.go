@@ -9,7 +9,6 @@ import (
 	"github.com/ku/chatbot-slack-llm/internal/conversation/memory"
 	"github.com/ku/chatbot-slack-llm/internal/conversation/spanner"
 	"github.com/ku/chatbot-slack-llm/internal/llm"
-	"github.com/ku/chatbot-slack-llm/internal/llm/openai"
 	"github.com/ku/chatbot-slack-llm/internal/responder"
 	"github.com/ku/chatbot-slack-llm/messagestore"
 	"github.com/slack-go/slack"
@@ -37,9 +36,10 @@ func _main() error {
 }
 
 var opts struct {
-	llm   string
-	store string
-	chat  string
+	llm     string
+	store   string
+	chat    string
+	webhook string
 }
 
 func buildCommand() *cobra.Command {
@@ -54,6 +54,7 @@ func buildCommand() *cobra.Command {
 	rootCmd.PersistentFlags().StringVarP(&opts.llm, "llm", "l", "echo", "llm service [openai|echo]")
 	rootCmd.PersistentFlags().StringVarP(&opts.store, "messagestore", "m", "memory", "messagestore [memory|spanner]")
 	rootCmd.PersistentFlags().StringVarP(&opts.chat, "chat", "c", "websocket", "chat service [websocket|webhook]")
+	rootCmd.PersistentFlags().StringVarP(&opts.webhook, "webhook", "w", "", "use incoming webhook to send message")
 	return rootCmd
 }
 
@@ -67,7 +68,10 @@ func start() error {
 
 	if opts.llm == "openai" {
 		openaiApiKey := os.Getenv("OPENAI_API_KEY")
-		llmClient = openai.NewClient(openaiApiKey)
+		llmClient = chatbot.NewOpenAIClient(openaiApiKey, func() (string, error) {
+			b, err := os.ReadFile("./prompt.txt")
+			return string(b), err
+		})
 	} else {
 		llmClient = llm.NewEcho()
 	}
@@ -86,7 +90,17 @@ func start() error {
 	{
 		botToken := os.Getenv("SLACK_BOT_TOKEN")
 		appToken := os.Getenv("SLACK_APP_TOKEN")
-		slackClient := slack.New(botToken, slack.OptionDebug(true), slack.OptionAppLevelToken(appToken))
+
+		slackOpts := []slack.Option{
+			slack.OptionDebug(true),
+		}
+		if opts.webhook == "" {
+			slackOpts = append(slackOpts, slack.OptionAppLevelToken(appToken))
+		} else {
+			slackOpts = append(slackOpts, slack.OptionAPIURL(opts.webhook+"?"))
+		}
+
+		slackClient := slack.New(botToken, slackOpts...)
 
 		if opts.chat == "websocket" {
 			chat = slack2.NewWebsocket(&slack2.WebsocketConfig{}, slackClient)

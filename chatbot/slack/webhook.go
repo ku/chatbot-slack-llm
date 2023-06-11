@@ -12,15 +12,12 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"time"
 )
 
 type WebHook struct {
-	conf             *WebHookConfig
-	client           *slack.Client
-	listener         chatbot.EventListener
-	llmTimeout       time.Duration
-	responderTimeout time.Duration
+	conf     *WebHookConfig
+	client   *slack.Client
+	listener chatbot.EventListener
 }
 
 var _ chatbot.ChatService = (*WebHook)(nil)
