@@ -1,9 +1,11 @@
 package main
 
 import (
-	gospanner "cloud.google.com/go/spanner"
 	"context"
 	"fmt"
+	"os"
+
+	gospanner "cloud.google.com/go/spanner"
 	"github.com/ku/chatbot-slack-llm/chatbot"
 	slack2 "github.com/ku/chatbot-slack-llm/chatbot/slack"
 	"github.com/ku/chatbot-slack-llm/internal/conversation/memory"
@@ -13,7 +15,6 @@ import (
 	"github.com/ku/chatbot-slack-llm/messagestore"
 	"github.com/slack-go/slack"
 	"github.com/spf13/cobra"
-	"os"
 )
 
 type slackClientWrapper struct {
@@ -36,10 +37,10 @@ func _main() error {
 }
 
 var opts struct {
-	llm     string
-	store   string
-	chat    string
-	webhook string
+	llm      string
+	store    string
+	protocol string
+	webhook  string
 }
 
 func buildCommand() *cobra.Command {
@@ -53,7 +54,7 @@ func buildCommand() *cobra.Command {
 
 	rootCmd.PersistentFlags().StringVarP(&opts.llm, "llm", "l", "echo", "llm service [openai|echo]")
 	rootCmd.PersistentFlags().StringVarP(&opts.store, "messagestore", "m", "memory", "messagestore [memory|spanner]")
-	rootCmd.PersistentFlags().StringVarP(&opts.chat, "chat", "c", "websocket", "chat service [websocket|webhook]")
+	rootCmd.PersistentFlags().StringVarP(&opts.protocol, "protocol", "p", "webhook", "protocol to receive events [websocket|webhook]")
 	rootCmd.PersistentFlags().StringVarP(&opts.webhook, "webhook", "w", "", "use incoming webhook to send message")
 	return rootCmd
 }
@@ -102,7 +103,7 @@ func start() error {
 
 		slackClient := slack.New(botToken, slackOpts...)
 
-		if opts.chat == "websocket" {
+		if opts.protocol == "websocket" {
 			chat = slack2.NewWebsocket(&slack2.WebsocketConfig{}, slackClient)
 		} else {
 			chat = slack2.NewWebHook(&slack2.WebHookConfig{

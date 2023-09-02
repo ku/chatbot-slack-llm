@@ -1,33 +1,56 @@
 package conversation_test
 
 import (
-	gospanner "cloud.google.com/go/spanner"
 	"context"
 	"fmt"
+	"os"
+	"testing"
+	"time"
+
+	gospanner "cloud.google.com/go/spanner"
+	"github.com/kelseyhightower/envconfig"
+	"github.com/ku/chatbot-slack-llm/internal/conversation/firestore"
 	"github.com/ku/chatbot-slack-llm/internal/conversation/memory"
 	"github.com/ku/chatbot-slack-llm/internal/conversation/spanner"
 	"github.com/ku/chatbot-slack-llm/messagestore"
 	"github.com/slack-go/slack/slackevents"
-	"os"
-	"testing"
-	"time"
 )
+
+type initializer func() (messagestore.MessageStore, error)
 
 func TestConversations_Implementations(t *testing.T) {
 	ctx := context.Background()
 	botID := "S01J9JZQZ8M"
-	dsn := os.Getenv("CHATBOT_SPANNER_DSN")
-	client, err := gospanner.NewClient(ctx, dsn)
-	if err != nil {
-		t.Fatalf("failed to create spanner client: %s", err.Error())
+
+	inits := map[string]initializer{
+		"firestore": func() (messagestore.MessageStore, error) {
+			ctx := context.Background()
+			var conf firestore.FirestoreConfig
+			conf.SlackBotID = botID
+			if err := envconfig.Process("", &conf); err != nil {
+				return nil, fmt.Errorf("failed to init client: %w", err)
+			}
+			return firestore.New(ctx, &conf)
+		},
+		"memory": func() (messagestore.MessageStore, error) {
+			return memory.NewConversations(botID), nil
+		},
+		"spanner": func() (messagestore.MessageStore, error) {
+			dsn := os.Getenv("CHATBOT_SPANNER_DSN")
+			client, err := gospanner.NewClient(ctx, dsn)
+			if err != nil {
+				t.Fatalf("failed to create spanner client: %s", err.Error())
+			}
+			return spanner.NewConversations(botID, client), nil
+		},
 	}
 
-	impls := map[string]messagestore.MessageStore{
-		"memory":  memory.NewConversations(botID),
-		"spanner": spanner.NewConversations(botID, client),
-	}
+	for name, init := range inits {
+		impl, err := init()
+		if err != nil {
+			t.Errorf("failed to init %s: %s", name, err.Error())
+		}
 
-	for name, impl := range impls {
 		t.Run(name+"/mention starts new conversation", func(t *testing.T) {
 			added, err := impl.OnMessage(ctx, messagestore.NewMessageFromMessage(&slackevents.MessageEvent{
 				User:            "human",

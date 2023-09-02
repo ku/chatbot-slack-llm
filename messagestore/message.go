@@ -2,9 +2,10 @@ package messagestore
 
 import (
 	"context"
-	"github.com/slack-go/slack/slackevents"
 	"regexp"
 	"time"
+
+	"github.com/slack-go/slack/slackevents"
 )
 
 var mentionRegex = regexp.MustCompile(`<(!\w+\^|@)(\w+)>\s*`)
@@ -15,6 +16,7 @@ type MessageStore interface {
 	GetConversation(ctx context.Context, thid string) (Conversation, error)
 }
 
+// Conversation represents a collection of the messages.
 type Conversation interface {
 	GetMessages() []Message
 	IsFromInitiater(m Message) bool
