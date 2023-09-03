@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"fmt"
+
 	"github.com/ku/chatbot-slack-llm/messagestore"
 )
 
@@ -16,8 +17,10 @@ type conversations struct {
 	cvs   map[string]*conversation
 }
 
-var _ messagestore.Conversation = (*conversation)(nil)
-var _ messagestore.MessageStore = (*conversations)(nil)
+var (
+	_ messagestore.Conversation = (*conversation)(nil)
+	_ messagestore.MessageStore = (*conversations)(nil)
+)
 
 func NewConversations(botID string) *conversations {
 	return &conversations{

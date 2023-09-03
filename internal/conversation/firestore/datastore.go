@@ -10,8 +10,10 @@ import (
 	"github.com/ku/chatbot-slack-llm/messagestore"
 )
 
-var _ messagestore.Conversation = (*conversation)(nil)
-var _ messagestore.MessageStore = (*Firestore)(nil)
+var (
+	_ messagestore.Conversation = (*conversation)(nil)
+	_ messagestore.MessageStore = (*Firestore)(nil)
+)
 
 type FirestoreConfig struct {
 	Credential     string `envconfig:"FIRESTORE_CREDENTIAL"`
@@ -51,7 +53,7 @@ func (f *Firestore) OnMessage(ctx context.Context, m messagestore.Message) (bool
 		"Messages": firestore.ArrayUnion(firestoreMessage{
 			MessageID:        m.GetMessageID(),
 			UserID:           m.GetFrom(),
-			Text:             m.GetText(),
+			Text:             m.GetRawText(),
 			MessageTimestamp: m.GetTimestamp(),
 			ThreadTimestamp:  m.GetThreadTimestamp(),
 		}),

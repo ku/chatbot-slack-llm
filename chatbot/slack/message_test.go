@@ -1,9 +1,10 @@
 package slack_test
 
 import (
+	"testing"
+
 	"github.com/ku/chatbot-slack-llm/chatbot/slack"
 	"github.com/ku/chatbot-slack-llm/messagestore"
-	"testing"
 )
 
 func TestBuildBlocksFromResponse(t *testing.T) {

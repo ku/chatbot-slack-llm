@@ -2,9 +2,10 @@ package slack
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/ku/chatbot-slack-llm/messagestore"
 	"github.com/slack-go/slack"
-	"strings"
 )
 
 type ResponseBlockType int
@@ -46,9 +47,9 @@ func BuildBlocksFromResponse(m messagestore.Message) ([]slack.Block, error) {
 
 func CommandBlocksFromResponse(rawText string) []*ResponseBlock {
 	var blocks []*ResponseBlock
-	//Replace the ampersand, &, with &amp;
-	//Replace the less-than sign, < with &lt;
-	//Replace the greater-than sign, > with &gt;
+	// Replace the ampersand, &, with &amp;
+	// Replace the less-than sign, < with &lt;
+	// Replace the greater-than sign, > with &gt;
 	// https://api.slack.com/reference/surfaces/formatting#escaping
 	unescapedTexet := strings.ReplaceAll(rawText, "&amp;", "&")
 	fields := strings.Split(unescapedTexet, "```")

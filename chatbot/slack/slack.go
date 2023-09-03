@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+
 	"github.com/ku/chatbot-slack-llm/chatbot"
 	"github.com/ku/chatbot-slack-llm/messagestore"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
-	"log"
 )
 
 // HandleEventMessage will take an event and handle it properly based on the type of event
@@ -45,8 +46,8 @@ func HandleEventMessage(ctx context.Context, listener chatbot.EventListener, eve
 }
 
 func dumpAsJson(blocks []slack.Block) error {
-	//test JSON on block kit builder
-	//https://app.slack.com/block-kit-builder/
+	// test JSON on block kit builder
+	// https://app.slack.com/block-kit-builder/
 	msg := slack.NewBlockMessage(blocks...)
 	b, err := json.MarshalIndent(msg, "", "  ")
 	if err != nil {

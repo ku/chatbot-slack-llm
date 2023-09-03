@@ -1,12 +1,14 @@
 package domains
 
 import (
-	"cloud.google.com/go/spanner"
 	"context"
+	"time"
+
+	"cloud.google.com/go/spanner"
+
 	"github.com/ku/chatbot-slack-llm/messagestore"
 	"google.golang.org/api/iterator"
 	"google.golang.org/grpc/codes"
-	"time"
 )
 
 func (c *Conversation) GetThreadID() string {

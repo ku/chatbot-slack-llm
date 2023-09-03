@@ -3,6 +3,7 @@ package openai
 import (
 	"context"
 	"fmt"
+
 	"github.com/ku/chatbot-slack-llm/messagestore"
 	openai "github.com/sashabaranov/go-openai"
 )

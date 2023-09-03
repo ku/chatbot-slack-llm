@@ -2,6 +2,7 @@ package llm
 
 import (
 	"context"
+
 	"github.com/ku/chatbot-slack-llm/messagestore"
 )
 

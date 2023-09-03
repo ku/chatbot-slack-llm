@@ -3,15 +3,15 @@ package responder
 import (
 	"context"
 	"fmt"
-	"github.com/ku/chatbot-slack-llm/chatbot"
 	"io"
 	"os/exec"
+
+	"github.com/ku/chatbot-slack-llm/chatbot"
 )
 
 var _ chatbot.BlockActionResponder = (*BashResponder)(nil)
 
-type BashResponder struct {
-}
+type BashResponder struct{}
 
 func NewBashResponder() *BashResponder {
 	return &BashResponder{}

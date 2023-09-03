@@ -6,8 +6,10 @@ import (
 	"os"
 
 	gospanner "cloud.google.com/go/spanner"
+	"github.com/kelseyhightower/envconfig"
 	"github.com/ku/chatbot-slack-llm/chatbot"
 	slack2 "github.com/ku/chatbot-slack-llm/chatbot/slack"
+	"github.com/ku/chatbot-slack-llm/internal/conversation/firestore"
 	"github.com/ku/chatbot-slack-llm/internal/conversation/memory"
 	"github.com/ku/chatbot-slack-llm/internal/conversation/spanner"
 	"github.com/ku/chatbot-slack-llm/internal/llm"
@@ -44,7 +46,7 @@ var opts struct {
 }
 
 func buildCommand() *cobra.Command {
-	var rootCmd = &cobra.Command{
+	rootCmd := &cobra.Command{
 		Use:   "chatbot",
 		Short: "llm chatbot",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -53,7 +55,7 @@ func buildCommand() *cobra.Command {
 	}
 
 	rootCmd.PersistentFlags().StringVarP(&opts.llm, "llm", "l", "echo", "llm service [openai|echo]")
-	rootCmd.PersistentFlags().StringVarP(&opts.store, "messagestore", "m", "memory", "messagestore [memory|spanner]")
+	rootCmd.PersistentFlags().StringVarP(&opts.store, "messagestore", "m", "memory", "messagestore [memory|spanner|firestore]")
 	rootCmd.PersistentFlags().StringVarP(&opts.protocol, "protocol", "p", "webhook", "protocol to receive events [websocket|webhook]")
 	rootCmd.PersistentFlags().StringVarP(&opts.webhook, "webhook", "w", "", "use incoming webhook to send message")
 	return rootCmd
@@ -77,31 +79,45 @@ func start() error {
 		llmClient = llm.NewEcho()
 	}
 
-	if opts.store == "spanner" {
+	switch opts.store {
+	case "spanner":
 		dsn := os.Getenv("CHATBOT_SPANNER_DSN")
 		spc, err := gospanner.NewClient(ctx, dsn)
 		if err != nil {
 			return fmt.Errorf("failed to create spanner client: %w", err)
 		}
 		ms = spanner.NewConversations(botID, spc)
-	} else {
+	case "firestore":
+		var conf firestore.FirestoreConfig
+		conf.SlackBotID = botID
+		err := envconfig.Process("", &conf)
+		if err != nil {
+			return fmt.Errorf("failed to init client: %w", err)
+		}
+		ms, err = firestore.New(ctx, &conf)
+		if err != nil {
+			return fmt.Errorf("failed to init firestore: %w", err)
+		}
+	default:
 		ms = memory.NewConversations(botID)
 	}
 
-	{
-		botToken := os.Getenv("SLACK_BOT_TOKEN")
-		appToken := os.Getenv("SLACK_APP_TOKEN")
+	var conf slack2.SlackConfig
 
+	err := envconfig.Process("", &conf)
+	if err != nil {
+		return fmt.Errorf("failed to init client: %w", err)
+	}
+
+	{
 		slackOpts := []slack.Option{
 			slack.OptionDebug(true),
 		}
-		if opts.webhook == "" {
-			slackOpts = append(slackOpts, slack.OptionAppLevelToken(appToken))
-		} else {
-			slackOpts = append(slackOpts, slack.OptionAPIURL(opts.webhook+"?"))
+		if opts.webhook != "" {
+			slackOpts = append(slackOpts, slack.OptionAppLevelToken(conf.AppToken))
 		}
 
-		slackClient := slack.New(botToken, slackOpts...)
+		slackClient := slack.New(conf.BotToken, slackOpts...)
 
 		if opts.protocol == "websocket" {
 			chat = slack2.NewWebsocket(&slack2.WebsocketConfig{}, slackClient)
@@ -119,7 +135,7 @@ func start() error {
 
 	responder := responder.NewBashResponder()
 
-	cb = chatbot.New(ms, chat, llmClient, responder, botID)
+	cb = chatbot.New(ms, chat, llmClient, responder, botID, conf.SlackChannels)
 	chat.SetEventListener(cb)
 	return chat.Run(ctx)
 }

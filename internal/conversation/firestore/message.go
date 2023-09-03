@@ -70,10 +70,10 @@ func (m *message) IsMentionAt(id string) bool {
 
 func (c *conversation) GetMessages() []messagestore.Message {
 	msgs := make([]messagestore.Message, len(c.Messages))
-	for i, m := range c.Messages {
+	for i := range c.Messages {
 		msgs[i] = &message{
 			conversation: c,
-			msg:          &m,
+			msg:          &c.Messages[i],
 		}
 	}
 	return msgs

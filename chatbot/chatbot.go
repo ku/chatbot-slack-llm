@@ -3,13 +3,14 @@ package chatbot
 import (
 	"context"
 	"fmt"
-	"github.com/ku/chatbot-slack-llm/messagestore"
-	"github.com/slack-go/slack"
-	"github.com/slack-go/slack/slackevents"
 	"log"
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/ku/chatbot-slack-llm/messagestore"
+	"github.com/slack-go/slack"
+	"github.com/slack-go/slack/slackevents"
 )
 
 type ChatBot struct {
@@ -18,8 +19,9 @@ type ChatBot struct {
 	chat      ChatService
 	responder BlockActionResponder
 
-	botID   string
-	verbose bool
+	botID         string
+	verbose       bool
+	slackChannels []string
 
 	llmTimeout      time.Duration
 	responderimeout time.Duration
@@ -47,7 +49,7 @@ type BlockActionResponder interface {
 	Handle(ctx context.Context, block string) (string, error)
 }
 
-func New(store messagestore.MessageStore, chat ChatService, llm LLMClient, responder BlockActionResponder, botID string) *ChatBot {
+func New(store messagestore.MessageStore, chat ChatService, llm LLMClient, responder BlockActionResponder, botID string, slackChannels []string) *ChatBot {
 	timeout := 60 * time.Second
 	return &ChatBot{
 		llm:             llm,
@@ -57,6 +59,7 @@ func New(store messagestore.MessageStore, chat ChatService, llm LLMClient, respo
 		botID:           botID,
 		llmTimeout:      timeout,
 		responderimeout: timeout,
+		slackChannels:   slackChannels,
 	}
 }
 
@@ -77,8 +80,24 @@ func (c *ChatBot) OnMessage(ctx context.Context, ev *slackevents.MessageEvent) e
 	if c.botID == m.GetFrom() {
 		return nil
 	}
+	// ignore messages from other channels
+	if len(c.slackChannels) > 0 {
+		if found := func() bool {
+			for _, channel := range c.slackChannels {
+				if channel == m.GetChannel() {
+					return true
+				}
+			}
+			return false
+		}(); !found {
+			return nil
+		}
+	}
 
 	added, err := c.store.OnMessage(ctx, m)
+	if err != nil {
+		return fmt.Errorf("failed to store message: %w", err)
+	}
 	if !added {
 		return err
 	}
@@ -201,7 +220,7 @@ func (c *ChatBot) respondToMessage(ctx context.Context, cv messagestore.Conversa
 	nm := messagestore.NewMessageFromCompletionMessage(m.GetChannel(), m.GetThreadID(), resp)
 
 	if err := c.postReply(ctx, nm); err != nil {
-		return err
+		return fmt.Errorf("failed to post reply from LLM: %w", err)
 	}
 
 	return nil

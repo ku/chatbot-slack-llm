@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/ku/chatbot-slack-llm/chatbot"
-	"github.com/ku/chatbot-slack-llm/messagestore"
-	"github.com/slack-go/slack"
-	"github.com/slack-go/slack/slackevents"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
+
+	"github.com/ku/chatbot-slack-llm/chatbot"
+	"github.com/ku/chatbot-slack-llm/messagestore"
+	"github.com/slack-go/slack"
+	"github.com/slack-go/slack/slackevents"
 )
 
 type WebHook struct {

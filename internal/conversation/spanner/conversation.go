@@ -1,13 +1,15 @@
 package spanner
 
 import (
-	"cloud.google.com/go/spanner"
 	"context"
+	"math/rand"
+	"strings"
+
+	"cloud.google.com/go/spanner"
+
 	"github.com/ku/chatbot-slack-llm/internal/domains"
 	"github.com/ku/chatbot-slack-llm/messagestore"
 	"google.golang.org/grpc/codes"
-	"math/rand"
-	"strings"
 )
 
 type conversations struct {

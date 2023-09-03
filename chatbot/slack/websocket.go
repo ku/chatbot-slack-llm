@@ -2,13 +2,14 @@ package slack
 
 import (
 	"context"
+	"log"
+	"os"
+
 	"github.com/ku/chatbot-slack-llm/chatbot"
 	"github.com/ku/chatbot-slack-llm/messagestore"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 	"github.com/slack-go/slack/socketmode"
-	"log"
-	"os"
 )
 
 type websocket struct {
@@ -38,6 +39,7 @@ func (s *websocket) Name() string {
 func (w *websocket) SetEventListener(listener chatbot.EventListener) {
 	w.listener = listener
 }
+
 func (s *websocket) Run(ctx context.Context) error {
 	// go-slack comes with a SocketMode package that we need to use that accepts a Slack client and outputs a Socket mode client instead
 	socketClient := socketmode.New(

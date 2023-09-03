@@ -3,14 +3,15 @@ package slack
 import (
 	"bytes"
 	"context"
-	"github.com/ku/chatbot-slack-llm/chatbot"
-	"github.com/ku/chatbot-slack-llm/messagestore"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"reflect"
 	"testing"
+
+	"github.com/ku/chatbot-slack-llm/chatbot"
+	"github.com/ku/chatbot-slack-llm/messagestore"
 )
 
 type echoResponder struct{}
@@ -28,6 +29,7 @@ func (c *chatmock) PostMessage(ctx context.Context, message messagestore.Message
 	c.msg = message
 	return nil
 }
+
 func (c *chatmock) PostActionableMessage(ctx context.Context, message messagestore.Message) error {
 	return nil
 }

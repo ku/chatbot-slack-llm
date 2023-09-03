@@ -112,5 +112,4 @@ func TestConversations_Implementations(t *testing.T) {
 			}
 		})
 	}
-
 }

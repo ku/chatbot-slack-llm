@@ -5,8 +5,9 @@ package domains
 import (
 	"context"
 	"fmt"
-	"github.com/ku/chatbot-slack-llm/messagestore"
 	"time"
+
+	"github.com/ku/chatbot-slack-llm/messagestore"
 
 	"cloud.google.com/go/spanner"
 	"google.golang.org/api/iterator"
@@ -260,7 +261,7 @@ func FindConversationsByThreadTimestampCreatedAt(ctx context.Context, db YORODB,
 //
 // Generated from index 'ConversationsByThreadID'.
 func FindConversationsByThreadTimestampCreatedAtWithLimit(ctx context.Context, db YORODB, threadTimestamp string, createdAt time.Time, limit int) ([]*Conversation, error) {
-	var sqlstr = "SELECT " +
+	sqlstr := "SELECT " +
 		"ConversationID, ParentUserID, Text, MessageTimestamp, ThreadTimestamp, ThreadID, Channel, CreatedAt " +
 		"FROM Conversations@{FORCE_INDEX=ConversationsByThreadID} " +
 		"WHERE ThreadTimestamp = @param0 AND CreatedAt = @param1"
