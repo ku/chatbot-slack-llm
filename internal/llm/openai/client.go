@@ -10,8 +10,10 @@ import (
 
 type Client struct {
 	client *openai.Client
-	prompt func() (string, error)
+	prompt PromptFunc
 }
+
+type PromptFunc func(ctx context.Context) (string, error)
 
 type openaiCompletionResponse struct {
 	resp *openai.ChatCompletionResponse
@@ -25,7 +27,7 @@ func (o *openaiCompletionResponse) GetText() string {
 	return o.resp.Choices[0].Message.Content
 }
 
-func NewClient(apiKey string, prompt func() (string, error)) *Client {
+func NewClient(apiKey string, prompt PromptFunc) *Client {
 	return &Client{
 		client: openai.NewClient(apiKey),
 		prompt: prompt,
@@ -40,7 +42,7 @@ func (c *Client) Completion(ctx context.Context, cv messagestore.Conversation) (
 	var resp openai.ChatCompletionResponse
 	var err error
 
-	prompt, err := c.prompt()
+	prompt, err := c.prompt(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get prompt: %w", err)
 	}

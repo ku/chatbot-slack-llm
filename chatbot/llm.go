@@ -1,7 +1,9 @@
 package chatbot
 
-import "github.com/ku/chatbot-slack-llm/internal/llm/openai"
+import (
+	"github.com/ku/chatbot-slack-llm/internal/llm/openai"
+)
 
-func NewOpenAIClient(apiKey string, prompt func() (string, error)) *openai.Client {
+func NewOpenAIClient(apiKey string, prompt openai.PromptFunc) *openai.Client {
 	return openai.NewClient(apiKey, prompt)
 }

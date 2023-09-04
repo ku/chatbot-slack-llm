@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 
 	gospanner "cloud.google.com/go/spanner"
@@ -38,19 +39,22 @@ func _main() error {
 	return cmd.Execute()
 }
 
-var opts struct {
+type Options struct {
 	llm      string
 	store    string
 	protocol string
 	webhook  string
+	prompt   string
 }
 
 func buildCommand() *cobra.Command {
+	var opts Options
+
 	rootCmd := &cobra.Command{
 		Use:   "chatbot",
 		Short: "llm chatbot",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return start()
+			return start(&opts)
 		},
 	}
 
@@ -58,26 +62,18 @@ func buildCommand() *cobra.Command {
 	rootCmd.PersistentFlags().StringVarP(&opts.store, "messagestore", "m", "memory", "messagestore [memory|spanner|firestore]")
 	rootCmd.PersistentFlags().StringVarP(&opts.protocol, "protocol", "p", "webhook", "protocol to receive events [websocket|webhook]")
 	rootCmd.PersistentFlags().StringVarP(&opts.webhook, "webhook", "w", "", "use incoming webhook to send message")
+	rootCmd.PersistentFlags().StringVarP(&opts.prompt, "prompt", "", "", `system prompt. text file name or URL of Slack File`)
 	return rootCmd
 }
 
-func start() error {
+func start(opts *Options) error {
 	ctx := context.Background()
 	botID := os.Getenv("CHATBOT_BOT_ID")
 
 	var llmClient chatbot.LLMClient
 	var ms messagestore.MessageStore
 	var chat chatbot.ChatService
-
-	if opts.llm == "openai" {
-		openaiApiKey := os.Getenv("OPENAI_API_KEY")
-		llmClient = chatbot.NewOpenAIClient(openaiApiKey, func() (string, error) {
-			b, err := os.ReadFile("./prompt.txt")
-			return string(b), err
-		})
-	} else {
-		llmClient = llm.NewEcho()
-	}
+	var slackClient *slack.Client
 
 	switch opts.store {
 	case "spanner":
@@ -117,7 +113,7 @@ func start() error {
 			slackOpts = append(slackOpts, slack.OptionAppLevelToken(conf.AppToken))
 		}
 
-		slackClient := slack.New(conf.BotToken, slackOpts...)
+		slackClient = slack.New(conf.BotToken, slackOpts...)
 
 		if opts.protocol == "websocket" {
 			chat = slack2.NewWebsocket(&slack2.WebsocketConfig{}, slackClient)
@@ -131,6 +127,29 @@ func start() error {
 				},
 			}, slackClient)
 		}
+	}
+
+	promptURL, err := url.Parse(opts.prompt)
+	//			opts.prompt
+	if err != nil {
+		return fmt.Errorf("failed to parse prompt value: %w", err)
+	}
+	if !(promptURL.Scheme == "" || promptURL.Scheme == "https") {
+		return fmt.Errorf("invalid prompt value: %s", opts.prompt)
+	}
+
+	if opts.llm == "openai" {
+		openaiApiKey := os.Getenv("OPENAI_API_KEY")
+		llmClient = chatbot.NewOpenAIClient(openaiApiKey, func(ctx context.Context) (string, error) {
+			if promptURL.Scheme == "" {
+				b, err := os.ReadFile(opts.prompt)
+				return string(b), err
+			}
+
+			return slack2.ReadCanvasAsPlainText(ctx, slackClient, promptURL)
+		})
+	} else {
+		llmClient = llm.NewEcho()
 	}
 
 	responder := responder.NewBashResponder()
